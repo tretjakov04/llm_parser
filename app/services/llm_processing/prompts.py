@@ -5,46 +5,46 @@ CODE_GEN_PROMPT = """
 JSON-сэмпл (первые 60-100 строк).
 
 ЗАДАЧА:
-Напиши функцию def parse_excel(file_path: str, target_sheet: str = None) -> list[dict]:
+Напиши функцию def parse_excel(sheet) -> list[dict]:
+(Параметр `sheet` — это уже открытый объект openpyxl.worksheet.worksheet.Worksheet. Файл открывать не нужно!)
+
+CRITICAL RULES FOR GENERATING CODE:
+1. DO NOT implement logic for parsing tags or splitting metadata cells.
+2. Your script MUST start with exactly this import:
+from app.services.parser_service.spil_utils import parse_tag_cell, split_metadata_cell
+3. STRICT SYNTAX RULE: DO NOT use complex one-liners, generators, or list comprehensions for nested logic (e.g., do not use `sum(1 for x in y if z)` with nested loops). Write standard, explicit `for` loops to prevent Python variable scope errors (`UnboundLocalError`).
 
 ВАЖНОЕ ТРЕБОВАНИЕ БЕЗОПАСНОСТИ:
-При вычислении индексов (например, col - 2) всегда оборачивай их в max(1, ...), чтобы избежать ошибки "Row or column values must be at least 1". Пример: range(max(1, WALL_COL - 2), ...).
+При вычислении индексов (например, col - 2) всегда оборачивай их в max(1, ...). Пример: range(max(1, WALL_COL - 2), ...).
 
 АЛГОРИТМ (СТРОГО СЛЕДУЙ ЕМУ, НЕ МЕНЯЙ ЛОГИКУ):
 
-1. ОТКРЫТИЕ ФАЙЛА:
-   import openpyxl
+1. ПОДГОТОВКА:
    import re 
-   wb = openpyxl.load_workbook(file_path, data_only=True)
-   sheet = None
-
-   if target_sheet and target_sheet in wb.sheetnames:
-       sheet = wb[target_sheet]
-   else:
-       for s in wb.sheetnames:
-           if "SPIL" in s.upper():
-               sheet = wb[s]
-               break
-       if sheet is None:
-           sheet = wb.active
+   from app.services.parser_service.spil_utils import parse_tag_cell, split_metadata_cell
+   data = []
 
 2. ДИНАМИЧЕСКИЙ ПОИСК ЗАГОЛОВКОВ (SCANNER):
    - HEADER_ROW = None
+   - Пройди циклом по `row` от 1 до 100.
+   - Внутри цикла собери значения ячеек `sheet.cell(row, c).value` для `c` от 1 до 50 в единую строку `row_text` (приведи к верхнему регистру, заменяя None на "").
    - Ключевые слова: ["DESCRIPTION", "MANUFACTURER", "PART NUMBER", "TOTAL", "QTY", "QUANTITY", "MEASURE", "U.O.M"]
-   - Просканируй строки с 1 по 100.
-   - Если >= 3 совпадений ключевых слов -> HEADER_ROW = row; break.
+   - Посчитай, сколько уникальных ключевых слов из списка присутствует в `row_text`.
+   - Если >= 3 -> HEADER_ROW = row; break.
+
    - Если HEADER_ROW is None -> return []
 
    - WALL_COL = None
-   - В HEADER_ROW ищем первую колонку с "DESCRIPTION", "MEASURE", "ITEM" или "POS" -> это WALL_COL.
+   - Пройди циклом по `c` от 1 до sheet.max_column.
+   - val = str(sheet.cell(HEADER_ROW, c).value or "").upper()
+   - Если "DESCRIPTION" in val or "MEASURE" in val or "ITEM" in val or "POS" in val -> WALL_COL = c; break.
 
 3. ПОИСК СТРОК МЕТАДАННЫХ (TAGS, SERIAL, MODEL):
    - TAG_ROW_IDX = None; SERIAL_ROW_IDX = None; MODEL_ROW_IDX = None
    - Если HEADER_ROW is not None:
-       - Сканируем строки row от 1 до HEADER_ROW (включительно).
-       - row_str = строка в верхнем регистре.
-       - Если TAG_ROW_IDX is None:
-           if "EQUIPMENT" in row_str and "TAG" in row_str: TAG_ROW_IDX = row
+       - Сканируем строки `row` от 1 до HEADER_ROW (включительно).
+       - Собери значения ячеек `sheet.cell(row, c).value` для `c` от 1 до 15 в единую строку `row_str` (в верхнем регистре, заменяя None на "").
+       - Если TAG_ROW_IDX is None and "EQUIPMENT" in row_str and "TAG" in row_str: TAG_ROW_IDX = row
        - Если "SERIAL" in row_str and "NUMBER" in row_str: SERIAL_ROW_IDX = row
        - Если "MODEL" in row_str: MODEL_ROW_IDX = row
        - Если TAG_ROW_IDX is None and "TAG" in row_str: TAG_ROW_IDX = row
@@ -74,66 +74,27 @@ JSON-сэмпл (первые 60-100 строк).
      if "WAREHOUSE" in val or "SAP PART" in val: cols['warehouse'] = col
      if ("CHECK" in val or "MATERIAL" in val) and "DESCRIPTION" not in val: cols['check'] = col
      if "CURRENCY" in val: cols['currency'] = col
+     if "VENDOR DWG" in val or "VENDOR CATALOG" in val: cols['vendor_dwg'] = col
+     if "OPERATING SPARE" in val: cols['op_spares'] = col
+     if "TOTAL" in val and "IDENTICAL" in val: cols['total_identical'] = col
+     if "ORIGINAL" in val and "PURCHASE ORDER" in val: cols['orig_po_part'] = col
+     if "CAPITAL" in val and "SPARE" in val: cols['cap_spares'] = col
+     if "COMMISSIONING" in val and "SPARE" in val: cols['comm_spares'] = col
+     if "RECOMMENDED" in val and "MANUFACTURER" in val: cols['rec_qty'] = col
+     if "CONTRACTOR" in val and "REVIEW" in val: cols['cont_review'] = col
+     if "APPROVED" in val and "QUANTITY" in val: 
+         cols['appr_qty_cat1'] = col
+         cols['appr_qty_cat3'] = col + 1
+         cols['appr_qty_cat4'] = col + 2
 
      if 'manuf' not in cols and "MANUFACTURER" in val:
-          forbidden = ["TRUE", "PART", "TOTAL", "RECOMMENDED", "QTY", "NO", "DWG", "ID"]
-          if not any(bad_word in val for bad_word in forbidden):
-              cols['manuf'] = col
+         forbidden = ["TRUE", "PART", "TOTAL", "RECOMMENDED", "QTY", "NO", "DWG", "ID"]
+         if not any(bad_word in val for bad_word in forbidden):
+             cols['manuf'] = col
 
 5. ПОИСК И РАЗДЕЛЕНИЕ ТЕГОВ (FINAL ROBUST PARSER):
    - tag_map = {{}} 
    - last_valid_tags = None 
-
-   # ---------------------------------------------------------------------
-   # ФУНКЦИЯ parse_tag_cell (УМНАЯ СКЛЕЙКА И РАЗДЕЛЕНИЕ)
-   # ---------------------------------------------------------------------
-   # def parse_tag_cell(cell_value) -> list[str]:
-   #    if not cell_value: return []
-   #    val_str = str(cell_value).strip()
-   #    val_str = val_str.replace(" -", "-").replace("- ", "-")
-   #
-   #    # ВАЖНО: Лечим разрыв слэшей из-за переносов строк (22A/B\n/C -> 22A/B/C)
-   #    val_str = re.sub(r"\\s*/\\s*", "/", val_str)
-   #    
-   #    # 1. Заменяем переносы, запятые и ДВА И БОЛЕЕ пробела на пайпы (|)
-   #    val_str = re.sub(r"[\\n\\r\\t,;&]", "|", val_str)
-   #    val_str = re.sub(r"\\s{{2,}}", "|", val_str)
-   #    
-   #    # 2. Склеиваем суффиксы (A, B, 01), если перед ними 1 пробел, а после - пайп, СЛЭШ или конец строки
-   #    val_str = re.sub(r"(?<=\\w) (?=\\w{{1,2}}(?:[|/]|$))", "", val_str)
-   #    
-   #    # 3. Оставшиеся одиночные пробелы тоже считаем разделителями
-   #    val_str = val_str.replace(" ", "|")
-   #    
-   #    raw_tokens = [t.strip() for t in val_str.split("|") if t.strip()]
-   #    expanded_tags = []
-   #    
-   #    def is_strong(part):
-   #         return (len(part) >= 4 and any(c.isdigit() for c in part)) or \
-   #                (len(part) >= 3 and part[0].isalpha() and any(c.isdigit() for c in part))
-   #
-   #    for token in raw_tokens:
-   #        token = token.lstrip("-")
-   #        parts = token.split('-')
-   #        for i in range(len(parts) - 1):
-   #            if is_strong(parts[i]) and is_strong(parts[i+1]):
-   #                parts[i] += '|'
-   #        token = "-".join(parts).replace("|-", "|")
-   #        
-   #        for sub in token.split('|'):
-   #            if '/' not in sub: expanded_tags.append(sub)
-   #            else:
-   #                s_parts = [x.strip() for x in sub.split('/') if x.strip()]
-   #                if not s_parts: continue
-   #                base = s_parts[0]
-   #                expanded_tags.append(base)
-   #                for suffix in s_parts[1:]:
-   #                    if '-' in suffix: expanded_tags.append(suffix)
-   #                    elif suffix.isdigit(): base = re.sub(r"\\d+$", suffix, base); expanded_tags.append(base)
-   #                    elif len(suffix) == 1 and base[-1].isalpha(): base = base[:-1] + suffix; expanded_tags.append(base)
-   #                    else: expanded_tags.append(suffix)
-   #    return expanded_tags
-   # ---------------------------------------------------------------------
 
    - Иди по колонкам col от 1 до WALL_COL (строго < WALL_COL).
    - val_raw = sheet.cell(TAG_ROW_IDX, col).value
@@ -147,7 +108,7 @@ JSON-сэмпл (первые 60-100 строк).
        if not val_str and last_valid_tags:
            tag_map[col] = last_valid_tags
        elif val_str:
-           tags = parse_tag_cell(val_str) 
+           tags = parse_tag_cell(val_str) # ВЫЗОВ ИМПОРТИРОВАННОЙ ФУНКЦИИ
            valid_tags = [t for t in tags if not (len(t) < 3 and t.isdigit())]
            if valid_tags:
                tag_map[col] = valid_tags
@@ -164,19 +125,6 @@ JSON-сэмпл (первые 60-100 строк).
    - if 'lead' in cols:
          ht = header_texts.get(cols['lead'], "").upper()
          if "WEEK" in ht: lead_is_weeks = True
-
-   # ---------------------------------------------------------------------
-   # ФУНКЦИЯ РАЗДЕЛЕНИЯ МЕТАДАННЫХ (SERIAL / MODEL)
-   # ---------------------------------------------------------------------
-   # def split_metadata_cell(cell_val, count_needed):
-   #     if not cell_val: return [None] * count_needed
-   #     s_val = str(cell_val).strip()
-   #     parts = [p.strip() for p in re.split(r'[\\n\\r]+', s_val) if p.strip()]
-   #     if len(parts) == count_needed: return parts
-   #     parts = [p.strip() for p in re.split(r'\\s{{2,}}', s_val) if p.strip()]
-   #     if len(parts) == count_needed: return parts
-   #     return [s_val] * count_needed
-   # ---------------------------------------------------------------------
 
    - Иди от DATA_START до sheet.max_row.
    - desc_val = sheet.cell(row, cols["desc"]).value
@@ -201,7 +149,7 @@ JSON-сэмпл (первые 60-100 строк).
      - Если qty > 0:
        - row_has_qty = True
        - serial_raw = sheet.cell(SERIAL_ROW_IDX, col).value if SERIAL_ROW_IDX else None
-       # serials_expanded = split_metadata_cell(serial_raw, len(tags_list))
+       - serials_expanded = split_metadata_cell(serial_raw, len(tags_list)) # ВЫЗОВ ИМПОРТИРОВАННОЙ ФУНКЦИИ
        - model = sheet.cell(MODEL_ROW_IDX, col).value if MODEL_ROW_IDX else None
 
        curr = "USD"
@@ -217,7 +165,7 @@ JSON-сэмпл (первые 60-100 строк).
            except: pass 
 
        for i, tag_name in enumerate(tags_list):
-           item = {{
+            item = {{
                "equipment_tag": tag_name, 
                "serial_number": serials_expanded[i],   
                "model": model,            
@@ -230,8 +178,19 @@ JSON-сэмпл (первые 60-100 строк).
                "warehouse_number": sheet.cell(row, cols['warehouse']).value if 'warehouse' in cols else None,
                "lead_time": lead_val,
                "material_check": sheet.cell(row, cols['check']).value if 'check' in cols else None,
-               "currency": curr
-           }}
+               "currency": curr,
+               "vendor_dwg": sheet.cell(row, cols['vendor_dwg']).value if 'vendor_dwg' in cols else None,
+               "operating_spare_parts": sheet.cell(row, cols['op_spares']).value if 'op_spares' in cols else None,
+               "total_identical_parts": sheet.cell(row, cols['total_identical']).value if 'total_identical' in cols else None,
+               "original_po_part_number": sheet.cell(row, cols['orig_po_part']).value if 'orig_po_part' in cols else None,
+               "capital_spare_parts": sheet.cell(row, cols['cap_spares']).value if 'cap_spares' in cols else None,
+               "commissioning_spare_parts": sheet.cell(row, cols['comm_spares']).value if 'comm_spares' in cols else None,
+               "recommended_by_manufacturer": sheet.cell(row, cols['rec_qty']).value if 'rec_qty' in cols else None,
+               "contractor_review": sheet.cell(row, cols['cont_review']).value if 'cont_review' in cols else None,
+               "appr_qty_cat1": sheet.cell(row, cols['appr_qty_cat1']).value if 'appr_qty_cat1' in cols else None,
+               "appr_qty_cat3": sheet.cell(row, cols['appr_qty_cat3']).value if 'appr_qty_cat3' in cols else None,
+               "appr_qty_cat4": sheet.cell(row, cols['appr_qty_cat4']).value if 'appr_qty_cat4' in cols else None
+            }}
            data.append(item)
            current_row_items.append(item)
 
@@ -245,7 +204,7 @@ JSON-сэмпл (первые 60-100 строк).
        elif has_metadata:
            last_created_items = []
 
-7. ВОЗВРАТ: List[Dict]
+7. ВОЗВРАТ: data
 
 ВХОДНОЙ JSON:
 {context_data}

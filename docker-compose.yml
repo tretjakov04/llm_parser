@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: postgres_spil_db
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: adminpassword
+      POSTGRES_DB: spil_inventory
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: spil_backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    volumes:
+      - ./uploads:/app/uploads
+    environment:
+      - DATABASE_URL=postgresql://admin:adminpassword@db:5432/spil_inventory
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+
+volumes:
+  pgdata:
