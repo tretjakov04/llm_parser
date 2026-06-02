@@ -1,93 +1,155 @@
-# noways-project
+# Интеллектуальная система нормализации и обработки заказов с использованием больших языковых моделей
 
+**Дипломная работа Третьякова Игоря Кирилловича**  
+Специальность: **Искусственный интеллект**  
+Гродненский государственный университет имени Янки Купалы, 2026 г.
 
+## О проекте
 
-## Getting started
+Программный комплекс предназначен для автоматизированной обработки, нормализации и учета данных из неструктурированных технических спецификаций и заказов (SPIL-форм).
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+Система решает одну из ключевых проблем промышленного документооборота — извлечение структурированных данных из Excel-документов с нестабильной структурой, содержащих ошибки заполнения, объединенные ячейки, нестандартные заголовки, множественные сущности в одной ячейке и другие аномалии.
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+В основе решения лежит **гибридный алгоритм парсинга**, использующий большие языковые модели (LLM) для динамической генерации специализированного Python-кода обработки данных. Сгенерированный код применяется локально для высокоточного извлечения и нормализации информации без риска потери данных и с минимальными затратами вычислительных ресурсов.
 
-## Add your files
+---
 
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+## Ключевые возможности системы
 
+### Гибридный LLM-парсер
+
+Использование больших языковых моделей для анализа структуры документа и автоматической генерации индивидуального парсера под конкретный файл.
+
+### Асинхронная обработка
+
+Поддержка фонового выполнения задач с отслеживанием статусов обработки без блокировки пользовательского интерфейса.
+
+### Интеллектуальная нормализация данных
+
+Автоматическое извлечение информации об оборудовании и материалах даже из сильно загрязненных и нестандартизированных документов.
+
+### Централизованное хранение данных
+
+Сохранение нормализованных записей в PostgreSQL с поддержкой связей между оборудованием, материалами и исходными документами.
+
+### Современный веб-интерфейс
+
+Интерактивное SPA-приложение на React с поддержкой:
+
+- Drag & Drop загрузки файлов;
+- просмотра результатов парсинга;
+- настройки отображаемых колонок;
+- редактирования данных в таблицах;
+- управления историей обработки документов;
+- экспорта данных в CSV.
+
+### Контейнеризация
+
+Полное развертывание системы через Docker и Docker Compose для быстрого запуска в любой инфраструктуре.
+
+---
+
+## Архитектура проекта
+
+### Backend
+
+- Python
+- FastAPI
+- SQLAlchemy
+- PostgreSQL
+- OpenAI API
+- Pandas
+- OpenPyXL
+
+### Frontend
+
+- React
+- Vite
+- Ant Design
+- Axios
+
+### Infrastructure
+
+- Docker
+- Docker Compose
+
+---
+
+## Структура проекта
+
+```text
+backend/        — серверная часть приложения (FastAPI)
+frontend/       — клиентское приложение (React)
+database/       — база данных PostgreSQL
+services/       — бизнес-логика и обработка данных
+llm_processing/ — интеграция с большими языковыми моделями
+docker/         — конфигурация контейнеризации
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/noways-group/noways-project.git
-git branch -M main
-git push -uf origin main
-```
 
-## Integrate with your tools
+---
 
-* [Set up project integrations](https://gitlab.com/noways-group/noways-project/-/settings/integrations)
+## Функциональность
 
-## Collaborate with your team
+### Загрузка документов
 
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+- XLSX и XLS файлы;
+- ZIP-архивы с пакетной обработкой;
+- Drag & Drop интерфейс загрузки.
 
-## Test and Deploy
+### Интеллектуальный парсинг
 
-Use the built-in continuous integration in GitLab.
+- анализ структуры документа;
+- генерация адаптивного Python-кода через LLM;
+- локальное выполнение сгенерированного парсера;
+- извлечение данных об оборудовании и материалах;
+- нормализация информации.
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
+### Работа с данными
 
-***
+- хранение данных в PostgreSQL;
+- фильтрация и поиск записей;
+- редактирование данных через интерфейс;
+- контроль статусов обработки документов.
 
-# Editing this README
+### Экспорт
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+- выгрузка нормализованных данных в CSV;
+- подготовка данных для интеграции с ERP-системами.
 
-## Suggestions for a good README
+---
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+## Практическое применение
 
-## Name
-Choose a self-explaining name for your project.
+Система может использоваться для:
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+- автоматизации процессов снабжения и закупок;
+- обработки SPIL-форм и технических спецификаций;
+- цифровизации архивных документов предприятий;
+- интеграции с ERP-системами (SAP, Oracle и др.);
+- управления MRO-данными (Maintenance, Repair and Operations);
+- интеллектуальной обработки прайс-листов и заказов.
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+---
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+## Научная новизна
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+Основным результатом работы является разработка гибридного подхода к извлечению данных, при котором большая языковая модель используется не для непосредственного парсинга документа, а для генерации специализированного алгоритма обработки под конкретную структуру файла.
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+Такой подход позволяет объединить:
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+- гибкость искусственного интеллекта;
+- надежность детерминированных алгоритмов;
+- высокую скорость обработки больших объемов данных;
+- минимизацию риска галлюцинаций LLM.
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+---
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+## Автор
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+**Третьяков Игорь Кириллович**
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+Дипломная работа:
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+> **«Разработка интеллектуальной системы нормализации и обработки заказов с использованием больших языковых моделей»**
 
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+Гродненский государственный университет имени Янки Купалы, 2026 г.
